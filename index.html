@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dove lo guardo?</title>
+<style>
+:root{--bg:#0c0f15;--card:#171b24;--line:#2a3040;--text:#f6f7fb;--muted:#aab2c0;--accent:#7c5cff;--accent2:#9b87ff;--good:#4bd47b;--warn:#f0bd59}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:linear-gradient(180deg,#0b0e13,#121722 60%,#0b0e13)}
+main{width:min(980px,calc(100% - 28px));margin:44px auto}h1{font-size:clamp(38px,6vw,64px);letter-spacing:-.045em;margin:0 0 8px}.lead{color:var(--muted);margin:0 0 28px;line-height:1.5}
+.bar{display:flex;gap:10px;background:var(--card);padding:10px;border:1px solid var(--line);border-radius:18px}#q{flex:1;background:transparent;border:0;outline:0;color:white;font-size:18px;padding:14px;min-width:0}
+button{border:0;border-radius:12px;font-weight:750;cursor:pointer}#searchBtn{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;padding:0 23px}
+.filters{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:14px;margin:14px 2px 26px}.status{padding:28px;border:1px dashed var(--line);border-radius:16px;text-align:center;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;margin:15px 0}.movie{display:grid;grid-template-columns:110px 1fr;gap:18px}.poster{width:110px;aspect-ratio:2/3;object-fit:cover;border-radius:11px;background:#222834}
+.meta{font-size:14px;color:var(--muted)}.overview{line-height:1.5;color:#d6dbe5}.option{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;padding:15px 0;border-top:1px solid var(--line)}
+.tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}.tag{background:#242a36;border-radius:999px;padding:5px 8px;font-size:12px}.yes{color:var(--good)}.warn{color:var(--warn)}
+.watch{color:#fff;text-decoration:none;background:#272e3c;padding:9px 12px;border-radius:10px;white-space:nowrap}.empty{margin-top:13px}
+@media(max-width:620px){.bar{flex-direction:column}#searchBtn{height:48px}.movie{grid-template-columns:78px 1fr}.poster{width:78px}.option{flex-direction:column}}
+</style>
+</head>
+<body>
+<main>
+<h1>Dove lo guardo?</h1>
+<p class="lead">Cerca film disponibili in Italia e filtra le opzioni con audio originale e sottotitoli italiani.</p>
+<div class="bar"><input id="q" placeholder="Es. The Lighthouse, Parasite, Heat…" autofocus><button id="searchBtn">Cerca</button></div>
+<div class="filters"><label><input type="checkbox" id="vo" checked> Audio originale</label><label><input type="checkbox" id="sub" checked> Sub ITA</label></div>
+<div id="results"><div class="status">Inserisci il titolo di un film.</div></div>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const LANG={eng:"Inglese",ita:"Italiano",fra:"Francese",fre:"Francese",spa:"Spagnolo",deu:"Tedesco",ger:"Tedesco",jpn:"Giapponese",kor:"Coreano",zho:"Cinese",chi:"Cinese",por:"Portoghese",rus:"Russo",ara:"Arabo",hin:"Hindi",swe:"Svedese",dan:"Danese",nor:"Norvegese",nld:"Olandese",dut:"Olandese",pol:"Polacco",tur:"Turco",ell:"Greco",gre:"Greco"};
+const TYPE={subscription:"Abbonamento",free:"Gratis",rent:"Noleggio",buy:"Acquisto",addon:"Canale/Add-on"};
+const esc=s=>(s??"").toString().replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+const langList=xs=>xs?.length?xs.map(x=>LANG[x]||x.toUpperCase()).join(", "):"non indicato";
+$("#q").addEventListener("keydown",e=>{if(e.key==="Enter")search()});$("#searchBtn").onclick=search;
+$("#vo").onchange=()=>{if($("#q").value.trim())search()};$("#sub").onchange=()=>{if($("#q").value.trim())search()};
+async function search(){
+ const title=$("#q").value.trim(); if(!title)return;
+ $("#results").innerHTML='<div class="status">Ricerca in corso…</div>';
+ try{
+   const r=await fetch("/api/search?title="+encodeURIComponent(title));
+   const data=await r.json(); if(!r.ok)throw new Error(data.error||"Errore durante la ricerca");
+   render(data.results||[]);
+ }catch(e){$("#results").innerHTML='<div class="status">'+esc(e.message)+'</div>'}
+}
+function render(items){
+ const requireVO=$("#vo").checked,requireSub=$("#sub").checked;
+ if(!items.length){$("#results").innerHTML='<div class="status">Nessun film trovato.</div>';return}
+ let html="";
+ for(const m of items){
+   let opts=m.options||[]; if(requireVO)opts=opts.filter(o=>o.originalAudio); if(requireSub)opts=opts.filter(o=>o.italianSubs);
+   const orig=m.originalLanguages?.length?langList(m.originalLanguages):"non determinata";
+   let optionHtml=opts.map(o=>`<div class="option"><div><div><b>${esc(o.service)}</b> · ${esc(TYPE[o.type]||o.type||"Streaming")}${o.price?" · "+esc(o.price):""}</div><div class="tags"><span class="tag ${o.originalAudio?"yes":"warn"}">${o.originalAudio?"✓ Audio originale":"VO non verificata"}</span><span class="tag ${o.italianSubs?"yes":"warn"}">${o.italianSubs?"✓ Sub ITA":"Sub ITA non rilevati"}</span>${o.quality?`<span class="tag">${esc(o.quality.toUpperCase())}</span>`:""}</div><div class="meta" style="margin-top:7px">Audio: ${esc(langList(o.audios))} · Sottotitoli: ${esc(langList(o.subtitles))}</div></div>${o.link?`<a class="watch" target="_blank" rel="noopener" href="${esc(o.link)}">Apri servizio ↗</a>`:""}</div>`).join("");
+   if(!optionHtml)optionHtml='<div class="status empty">Nessuna opzione corrisponde ai filtri selezionati.</div>';
+   html+=`<article class="card movie">${m.poster?`<img class="poster" src="${esc(m.poster)}" alt="">`:`<div class="poster"></div>`}<div><h2 style="margin:0 0 4px">${esc(m.title)} ${m.year?`<span class="meta">(${esc(m.year)})</span>`:""}</h2>${m.originalTitle&&m.originalTitle!==m.title?`<div class="meta">Titolo originale: ${esc(m.originalTitle)}</div>`:""}<div class="meta">Lingua originale: ${esc(orig)}</div>${m.overview?`<p class="overview">${esc(m.overview)}</p>`:""}${optionHtml}</div></article>`;
+ }
+ $("#results").innerHTML=html;
+}
+</script>
+</body>
+</html>
