@@ -28,7 +28,7 @@ export default async function handler(req,res){
   const apiKey=process.env.STREAMING_API_KEY;
   if(!apiKey)return res.status(500).json({error:"La variabile STREAMING_API_KEY non è configurata su Vercel."});
   try{
-    const params=new URLSearchParams({title,country:"it",show_type:"movie",output_language:"it"});
+    const params=new URLSearchParams({title,country:"it",show_type:"movie",output_language:"en"});
     const response=await fetch(`https://api.movieofthenight.com/v4/shows/search/title?${params}`,{headers:{"X-API-Key":apiKey,Accept:"application/json"}});
     if(!response.ok){
       if(response.status===401||response.status===403)return res.status(502).json({error:"API key non valida o non autorizzata."});
